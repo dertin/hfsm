@@ -1,0 +1,28 @@
+[package]
+name = "hfsm"
+description = "Hierarchical Finite State Machine (HFSM)"
+authors = ["Guillermo Céspedes Tabárez"]
+version = "0.1.0"
+edition = "2021"
+keywords =["hfsm", "fsm", "state-machine"]
+categories = ["algorithms", "rust-patterns"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/dertin/hfsm"
+documentation = "https://docs.rs/hfsm"
+
+[lib]
+test = false
+bench = false
+
+[profile.bench]
+debug = true
+
+[[bench]]
+name = "bench"
+path = "benches/bench.rs"
+harness = false
+
+[dependencies]
+
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["async_tokio"] }
