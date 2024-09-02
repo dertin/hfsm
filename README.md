@@ -1,6 +1,6 @@
 ## 👋 Overview <a name="overview"></a>
 
-`hfsm` is a Rust library that provides tools for managing Hierarchical Finite State Machines (HFSM). This library allows you to build and run `SuperStates` and `States` using custom contexts that implement the `HFSMContext` trait.
+`hfsm` is a Rust library that provides tools for managing Hierarchical Finite State Machines (HFSM). This library allows you to build and run `SuperStates` and `States` using custom contexts that implement the `StateContext` trait.
 
 ## Key Features
 
@@ -21,25 +21,25 @@ To start using the `hfsm` library, follow these steps:
 ## Basic Example
 
 ```rust
-use hfsm::{HFSMContext, HashMapContext, SuperStateBuilder, Transition, HFSM};
+use hfsm::{InMemoryStateContext, StateContext as _, StateData, SuperStateBuilder, Transition, HFSM};
 
 fn main() {
     // Create a custom context
-    let mut context = HashMapContext::new();
+    let mut context = InMemoryStateContext::new();
 
     // Build a SuperState
     let flow_a = SuperStateBuilder::new()
         .id("FlowA")
         .initial_state("Task1")
         .add_state("Task1",
-            Box::new(|ctx: &mut HashMapContext| {
+            Box::new(|ctx: &mut InMemoryStateContext| {
                 println!("Executing Task1 in FlowA");
-                ctx.set("data", "200".to_string());
+                ctx.set("data", StateData::Text("200".to_string()));
                 Transition::ToState("Task2".to_string())
             }),
         )
         .add_state("Task2",
-            Box::new(|ctx: &mut HashMapContext| {
+            Box::new(|ctx: &mut InMemoryStateContext| {
                 println!("Executing Task2 in FlowA");
                 Transition::Complete
             }),
@@ -70,11 +70,34 @@ A `State` represents an individual unit of behavior in the HFSM. Each state can 
 
 ### Transition
 
-`Transition`s define how the HFSM moves between states. They can be:
-- `ToState`: Move to a specific `State` within the current `SuperState`
-- `ToSuperState`: Move to a specific `State` within a different `SuperState`
-- `Complete`: Finish execution of the current `SuperState`
+`Transition`s define how the HFSM (Hierarchical Finite State Machine) navigates between states and superstates. There are three main types of transitions:
+
+- **`ToState(next_state: String)`**:
+  - This transition moves the HFSM to a specific `State` within the current `SuperState`. The state identified by `next_state` will be executed next, and the HFSM will remain within the current `SuperState`.
+
+- **`ToSuperState { call_super_state: String, call_state: Option<String>, next_state: Option<String> }`**:
+  - This transition moves the HFSM from the current `SuperState` to another `SuperState` specified by `call_super_state`.
+  - If `call_state` is provided, the transition will begin with that specific `State` within the new `SuperState`. Otherwise, it will start from the initial state of the `SuperState`.
+  - If `next_state` is provided, the HFSM will register a callback. Once the `call_super_state` has completed all its states, the HFSM will return to the original `SuperState` and continue execution from `next_state`.
+
+
+- **`Complete`**:
+  - This transition signifies the completion of the current `SuperState`.
+  - If a callback has been registered (from a previous `ToSuperState` transition), the HFSM will return to the `SuperState` and `State` specified by the callback and continue execution from there.
+  - If no callback is registered, the HFSM will terminate, as there are no more states to execute.
+
 
 ### Context
 
-The `Context` allows sharing and manipulating data between states. It implements the `HFSMContext` trait to provide custom functionality.
+The `Context` is a fundamental component in the HFSM (Hierarchical Finite State Machine) framework. It acts as a shared repository for data that needs to be accessed and manipulated by different states during the execution of state transitions. 
+
+#### Implementations:
+
+The `StateContext` trait defines the interface that any context implementation must provide. It includes methods for setting, getting, and removing key-value pairs within the context.
+
+Included implementations:
+
+1. **`InMemoryStateContext`:** 
+   - This is an in-memory implementation of the `StateContext`, optimized for scenarios where the context's lifecycle is tied to the runtime of the state machine. 
+   - It uses a `HashMap` under the hood to store key-value pairs and is capable of handling various types of data through the use of `StateData`. 
+   - `InMemoryStateContext` is suitable for most applications where the context does not need to persist beyond the state machine's execution.

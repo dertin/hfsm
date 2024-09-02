@@ -1,20 +1,16 @@
 use std::collections::HashMap;
 
-use crate::{HFSMContext, State, Transition};
+use crate::{context::StateContext, State, Transition};
 
-pub struct SuperState<C: HFSMContext> {
+pub struct SuperState<C: StateContext> {
     pub id: String,
     pub states: HashMap<String, State<C>>,
     pub initial_state: String,
 }
 
-impl<C: HFSMContext> SuperState<C> {
+impl<C: StateContext> SuperState<C> {
     pub fn new(id: &str, initial_state: &str) -> Self {
-        SuperState {
-            id: id.to_string(),
-            states: HashMap::new(),
-            initial_state: initial_state.to_string(),
-        }
+        SuperState { id: id.to_string(), states: HashMap::new(), initial_state: initial_state.to_string() }
     }
 
     pub fn add_state(&mut self, state: State<C>) {
@@ -30,28 +26,22 @@ impl<C: HFSMContext> SuperState<C> {
     }
 }
 
-pub struct SuperStateBuilder<C: HFSMContext> {
+pub struct SuperStateBuilder<C: StateContext> {
     id: Option<String>,
     initial_state: Option<String>,
     states: HashMap<String, State<C>>,
     _marker: std::marker::PhantomData<C>,
 }
 
-impl<C: HFSMContext> Default for SuperStateBuilder<C> {
+impl<C: StateContext> Default for SuperStateBuilder<C> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<C: HFSMContext> SuperStateBuilder<C> {
-
+impl<C: StateContext> SuperStateBuilder<C> {
     pub fn new() -> Self {
-        SuperStateBuilder {
-            id: None,
-            initial_state: None,
-            states: HashMap::new(),
-            _marker: std::marker::PhantomData,
-        }
+        SuperStateBuilder { id: None, initial_state: None, states: HashMap::new(), _marker: std::marker::PhantomData }
     }
 
     pub fn id(mut self, id: &str) -> Self {
@@ -75,13 +65,7 @@ impl<C: HFSMContext> SuperStateBuilder<C> {
 
     pub fn build(self) -> Result<SuperState<C>, &'static str> {
         let id = self.id.ok_or("SuperState ID must be set.")?;
-        let initial_state = self
-            .initial_state
-            .ok_or("SuperState initial state must be set.")?;
-        Ok(SuperState {
-            id,
-            states: self.states,
-            initial_state,
-        })
+        let initial_state = self.initial_state.ok_or("SuperState initial state must be set.")?;
+        Ok(SuperState { id, states: self.states, initial_state })
     }
 }

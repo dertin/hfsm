@@ -1,4 +1,4 @@
-use crate::HFSMContext;
+use crate::context::StateContext;
 
 pub enum Transition {
     ToState(String),
@@ -6,12 +6,12 @@ pub enum Transition {
     Complete,
 }
 
-pub struct State<C: HFSMContext> {
+pub struct State<C: StateContext> {
     pub id: String,
     action: Box<dyn Fn(&mut C) -> Transition>,
 }
 
-impl<C: HFSMContext> State<C> {
+impl<C: StateContext> State<C> {
     pub fn new(id: &str, action: Box<dyn Fn(&mut C) -> Transition>) -> Self {
         State { id: id.to_string(), action }
     }

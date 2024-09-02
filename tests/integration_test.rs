@@ -1,77 +1,72 @@
 #[cfg(test)]
 mod tests {
-    use hfsm::{HFSMContext, HashMapContext, SuperStateBuilder, Transition, HFSM};
+    use hfsm::{InMemoryStateContext, StateContext as _, StateData, SuperStateBuilder, Transition, HFSM};
 
     #[test]
-    fn test_hfsm() {
-        let mut context = HashMapContext::new();
-        println!("Initiaizing context: {:?}", context);
+    fn test_hfsm_with_counter() {
+        let max_counter: i32 = 1_000_000;
+
+        let mut context: InMemoryStateContext = InMemoryStateContext::new();
+
+        context.set("counter", StateData::Integer(0));
 
         let flow_a = SuperStateBuilder::new()
-            .id("Flow_A")
-            .initial_state("Task_A1")
-            .add_state(
-                "Task_A1",
-                Box::new(|ctx: &mut HashMapContext| {
-                    println!("Executing Task A1 in Flow A");
-                    ctx.set("data", "200".to_string());
-                    println!("  Set data: {:?}", ctx.get("data"));
-                    Transition::ToState("Task_A2".to_string())
-                }),
-            )
-            .add_state(
-                "Task_A2",
-                Box::new(|ctx: &mut HashMapContext| {
-                    println!("Executing Task A2 in Flow A");
-                    if ctx.get("data").unwrap() == "200" {
-                        println!("  Transitioning to Flow B");
-                        Transition::ToSuperState{
-                            call_super_state: "Flow_B".to_string(),
-                            call_state: None,
-                            next_state: Some("Task_A3".to_string()), // TODO: Contiune with X state after Flow B is completed
-                        }
-                    } else {
-                        Transition::Complete
-                    }
-                }),
-            ).add_state(
-                "Task_A3",
-                Box::new(|_ctx: &mut HashMapContext| {
-                    unreachable!();
-                    // println!("Executing Task A3 in Flow A");
-                    // Transition::Complete
-
-                }),
-            )
+            .id("FlowA")
+            .initial_state("TaskA1")
+            .add_state("TaskA1", |ctx: &mut InMemoryStateContext| {
+                let counter = ctx.get("counter").and_then(|v| v.as_i32()).unwrap();
+                println!("Executing TaskA1 in FlowA, counter: {}", counter);
+                Transition::ToSuperState {
+                    call_super_state: "FlowB".to_string(),
+                    call_state: None,
+                    next_state: Some("TaskA2".to_string()),
+                }
+            })
+            .add_state("TaskA2", |ctx: &mut InMemoryStateContext| {
+                let counter = ctx.get("counter").and_then(|v| v.as_i32()).unwrap();
+                ctx.set("counter", StateData::Integer(counter));
+                println!("Executing TaskA2 in FlowA, incrementing counter to: {}", counter);
+                Transition::Complete
+            })
             .build()
-            .expect("Failed to build Flow A");
+            .expect("Failed to build FlowA");
 
         let flow_b = SuperStateBuilder::new()
-            .id("Flow_B")
-            .initial_state("Task_B1")
-            .add_state(
-                "Task_B1",
-                Box::new(|ctx: &mut HashMapContext| {
-                    println!("Executing Task B1 in Flow B");
-                    ctx.set("data", "300".to_string());
-                    println!("  Set data: {:?}", ctx.get("data"));
-                    Transition::ToState("Task_B2".to_string())
-                }),
-            ).add_state(
-                "Task_B2",
-                Box::new(|_ctx: &mut HashMapContext| {
-                    println!("Executing Task B2 in Flow B");
+            .id("FlowB")
+            .initial_state("TaskB1")
+            .add_state("TaskB1", |ctx: &mut InMemoryStateContext| {
+                let counter = ctx.get("counter").and_then(|v| v.as_i32()).unwrap();
+                println!("Executing TaskB1 in FlowB, counter: {}", counter);
+                Transition::ToState("TaskB2".to_string())
+            })
+            .add_state("TaskB2", move |ctx: &mut InMemoryStateContext| {
+                let mut counter = ctx.get("counter").and_then(|v| v.as_i32()).unwrap();
+                counter += 1;
+                ctx.set("counter", StateData::Integer(counter));
+                println!("Executing TaskB2 in FlowB, incrementing counter to: {}", counter);
+
+                if counter < max_counter {
+                    Transition::ToSuperState {
+                        call_super_state: "FlowA".to_string(),
+                        call_state: None,
+                        next_state: None,
+                    }
+                } else {
                     Transition::Complete
-                }),
-            )
+                }
+            })
             .build()
-            .expect("Failed to build Flow B");
+            .expect("Failed to build FlowB");
 
         let mut hfsm = HFSM::new(flow_a);
         hfsm.add_super_state(flow_b);
 
+        // Ejecutar la HFSM
         hfsm.run(&mut context);
 
-        println!("Final data: {:?}", context.get("data"));
+        // Comprobación final
+        let final_counter = context.get("counter").and_then(|v| v.as_i32()).unwrap();
+        println!("Final counter value: {}", final_counter);
+        assert_eq!(final_counter, max_counter);
     }
 }
